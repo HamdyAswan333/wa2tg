@@ -22,45 +22,39 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            python3-pip \
-            build-essential \
-            git \
-            python3-dev \
-            libsdl2-dev \
-            libsdl2-image-dev \
-            libsdl2-mixer-dev \
-            libsdl2-ttf-dev \
-            libportmidi-dev \
-            libswscale-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            zlib1g-dev \
-            libffi-dev \
-            libssl-dev \
-            openjdk-17-jdk \
-            unzip \
-            zip \
-            autoconf \
-            libtool \
-            pkg-config \
-            cmake
+            python3-pip build-essential git python3-dev \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev \
+            libsdl2-ttf-dev libportmidi-dev libswscale-dev \
+            libavformat-dev libavcodec-dev zlib1g-dev \
+            libffi-dev libssl-dev openjdk-17-jdk \
+            unzip zip autoconf libtool pkg-config cmake
 
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           pip install buildozer cython==0.29.36
 
+      - name: Accept Android licenses
+        run: |
+          mkdir -p ~/.android
+          touch ~/.android/repositories.cfg
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          yes | $ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager "build-tools;33.0.0" "platforms;android-33" "platform-tools" || true
+
       - name: Set up Android SDK cache
         uses: actions/cache@v4
         with:
           path: |
             ~/.buildozer
-            ~/.android
-          key: android-sdk-${{ runner.os }}-v3
+          key: buildozer-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}-v4
 
       - name: Build APK
+        env:
+          ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
         run: |
-          buildozer android debug 2>&1 | tee build.log
+          yes | buildozer android debug 2>&1 | tee build.log
+          echo "=== Build finished ==="
+          ls -la bin/ || echo "No bin directory"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -69,8 +63,8 @@ jobs:
           path: bin/*.apk
           retention-days: 30
 
-      - name: Upload build log on failure
-        if: failure()
+      - name: Upload build log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
